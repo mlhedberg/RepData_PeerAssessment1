@@ -6,20 +6,75 @@ output:
 ---
 
 
-## Loading and preprocessing the data
+##Loading and preprocessing the data
+```{r results = "hide"}
+unzip("activity.zip")
+data <- read.csv("activity.csv")
+data$date <- as.Date(data$date, "%Y-%m-%d")
+```
 
 
-
-## What is mean total number of steps taken per day?
-
+##What is mean total number of steps taken per day?
+```{r make plot}
+stepsperday <- tapply(data$steps, data$date, FUN = sum, na.rm = TRUE, simplify = TRUE)
+hist(stepsperday)
+```
+```{r results = "hide"}
+mean <- mean(stepsperday, na.rm = TRUE) 
+median <- median(stepsperday, na.rm = TRUE)
+```
+The mean number of steps per day was `r mean`.
+The median number of steps per day was `r median`.
 
 
 ## What is the average daily activity pattern?
-
-
+```{r plot}
+data$interval <- as.factor(data$interval)
+stepsperint <- tapply(data$steps, data$interval, FUN = mean, na.rm = TRUE, SIMPLIFY = TRUE)
+stepsperint <- data.frame("interval" = as.numeric(row.names(stepsperint)), "averagesteps" = stepsperint)
+with(stepsperint, plot(interval, averagesteps, type = "l"))
+```
 
 ## Imputing missing values
+```{r replace NAs}
+sum(is.na(data$steps))
+intValueForNArows <- data[is.na(data$steps), "interval"]
+medianstepsperint <- tapply(data$steps, data$interval, FUN = median, na.rm = TRUE)
+medianstepsperint <- data.frame("interval" = as.numeric(row.names(stepsperint)), "mediansteps" = medianstepsperint)
+medianstepsperint$interval <- as.factor(medianstepsperint$interval)
+medianstepsperint$mediansteps <- as.numeric(medianstepsperint$mediansteps)
+data2 <- merge(data, medianstepsperint, by.x = "interval", by.y = "interval")
+library(dplyr)
+data2 <- arrange(data2, date)
+data2[is.na(data2$steps), "steps"] = data2[intValueForNArows, "mediansteps"]
 
+stepsperday2 <- tapply(data2$steps, data2$date, FUN = sum, simplify = TRUE)
+hist(stepsperday2)
+```
+```{r results = "hide"}
+mean2 <- mean(stepsperday2) 
+median2 <- median(stepsperday2)
+```
+The mean number of steps per day was `r mean2`.
+The median number of steps per day was `r median2`.
+After replacing missing values with the median number of steps in the same time interval, the mean number of steps per day increased but the median number of steps per day stayed the same.
 
+##Are there differences in activity patterns between weekdays and weekends?
+```{r}
+data2$date <- as.Date(data2$date, "%Y-%m-%d")
+data2$day <- weekdays(data2$date)
+data2$typeofday <- ifelse(data2$day %in% c("Saturday", "Sunday"), "weekend", "weekday")
+data2$typeofday <- as.factor(data2$typeofday)
+weekday <- data2[data2$typeofday == "weekday", ]
+weekend <- data2[data2$typeofday == "weekend", ]
+avgweekday <- tapply(weekday$steps, weekday$interval, FUN = mean)
+avgweekend <- tapply(weekend$steps, weekend$interval, FUN = mean)
+avgweekday <- data.frame("interval" = as.numeric(row.names(avgweekday)), "steps" = avgweekday)
+row.names(avgweekday) = NULL
+avgweekend <- data.frame("interval" = as.numeric(row.names(avgweekend)), "steps" = avgweekend)
+row.names(avgweekend) = NULL
+with(avgweekday, plot(interval, steps, xlab = "interval", ylab = "average steps", type = "n"))
+with(avgweekday, lines(interval, steps, col = "red"))
+with(avgweekend, lines(interval, steps, col = "blue"))
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
